@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MnemoApp - AI + Mnemonics</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --primary-light: #e0e7ff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-main: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-dark); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+        
+        .app-window {
+            width: 100%;
+            max-width: 480px;
+            height: 92vh;
+            max-height: 880px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 16px 20px; text-align: center; }
+        header h1 { font-size: 19px; font-weight: 800; margin-bottom: 2px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        header p { font-size: 11px; opacity: 0.85; }
+
+        .workspace { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        .tab-content { display: none; flex-direction: column; gap: 12px; }
+        .tab-content.active { display: flex; }
+
+        .input-group { display: flex; gap: 8px; margin-bottom: 4px; }
+        .input-group input { flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 12px; font-size: 14px; outline: none; }
+        .input-group input:focus { border-color: var(--primary); }
+
+        .btn-action { background: var(--primary); color: white; border: none; padding: 0 16px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+        .filter-chips-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+        .filter-chip { background: #e2e8f0; color: var(--text-muted); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .filter-chip.active { background: var(--primary); color: white; }
+
+        .suggestions-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+        .chip-badge { background: var(--primary-light); color: var(--primary-dark); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+        .card-container { background: #fafafa; border: 2px solid var(--border-color); border-radius: 16px; padding: 14px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .card-title { font-size: 20px; font-weight: 800; color: var(--primary); text-transform: capitalize; display: flex; align-items: center; gap: 8px; }
+        
+        .audio-icon-btn { background: none; border: none; color: var(--primary); font-size: 16px; cursor: pointer; }
+        .category-tag { background: var(--primary-light); color: var(--primary-dark); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; }
+
+        .hero-visual { background: #ede9fe; height: 75px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 32px; margin-bottom: 10px; border: 1px dashed #c7d2fe; }
+        
+        .card-detail { font-size: 12px; color: var(--text-dark); line-height: 1.4; margin-bottom: 6px; }
+        .card-detail strong { color: var(--primary-dark); }
+
+        .lingo-grid { display: grid; grid-template-columns: 1fr; gap: 4px; background: #f8fafc; padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 6px; font-size: 11px; }
+        .lingo-item span { font-weight: 600; color: var(--primary-dark); }
+
+        /* Mnemonic Clue всегда виден */
+        .mnemonic-callout { background: #ffffff; border-left: 4px solid var(--primary); padding: 8px 10px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-top: 6px; }
+
+        /* Дополнительные блоки скрыты по умолчанию, появляются при клике на категорию */
+        .mnemonic-box { display: none; padding: 8px 10px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-top: 6px; }
+        .visual-box { background: #f8fafc; border-left: 4px solid var(--primary); }
+        .rhyme-box { background: #f0fdf4; border-left: 4px solid #22c55e; }
+        .assoc-box { background: #fffbeb; border-left: 4px solid #f59e0b; }
+        .story-box { background: #fdf4ff; border-left: 4px solid #c084fc; }
+
+        .olympiad-list, .all-words-list { display: flex; flex-direction: column; gap: 8px; }
+        .olympiad-card { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fcd34d; border-radius: 12px; padding: 10px 14px; cursor: pointer; transition: transform 0.2s; }
+        .olympiad-card:hover { transform: translateY(-2px); }
+        .olympiad-title { font-weight: 800; color: #b45309; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+
+        .word-list-item { background: #f8fafc; border: 1px solid var(--border-color); padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; }
+        .word-list-item:hover { border-color: var(--primary); }
+
+        .game-card { background: #ffffff; border: 2px solid var(--border-color); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+        .game-title { font-weight: 700; color: var(--primary); font-size: 15px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .game-opt-btn { width: 100%; text-align: left; padding: 9px 12px; margin-top: 6px; background: #f1f5f9; border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .game-opt-btn:hover { background: var(--primary-light); color: var(--primary-dark); }
+
+        .bottom-nav { display: flex; justify-content: space-around; background: white; border-top: 1px solid var(--border-color); padding: 8px 0; }
+        .nav-tab { text-align: center; font-size: 10px; color: var(--text-muted); cursor: pointer; flex: 1; }
+        .nav-tab.active { color: var(--primary); font-weight: 700; }
+        .nav-tab i { font-size: 16px; margin-bottom: 2px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="app-window">
+        <header>
+            <h1><i class="fa-solid fa-brain"></i> MnemoApp</h1>
+            <p>AI + Mnemonics = Easy English Vocabulary</p>
+        </header>
+
+        <div class="workspace">
+            <!-- Learn Tab -->
+            <div id="tabLearnView" class="tab-content active">
+                <div class="input-group">
+                    <input type="text" id="targetWordInput" placeholder="Enter English word..." value="heavy">
+                    <button class="btn-action" id="btnSearch"><span>Search</span></button>
+                </div>
+
+                <div class="filter-chips-row">
+                    <div class="filter-chip active" id="catAll" onclick="filterByCategory('all')">All Words</div>
+                    <div class="filter-chip" id="catVisual" onclick="filterByCategory('Visual')">Visual</div>
+                    <div class="filter-chip" id="catRhymes" onclick="filterByCategory('Rhymes')">Rhymes</div>
+                    <div class="filter-chip" id="catStories" onclick="filterByCategory('Stories')">Stories</div>
+                    <div class="filter-chip" id="catAssociations" onclick="filterByCategory('Associations')">Associations</div>
+                </div>
+
+                <div class="suggestions-row" id="wordChipsContainer"></div>
+
+                <div class="card-container" id="displayCard">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span id="cardWordText">heavy</span>
+                            <button class="audio-icon-btn" onclick="speakWord()"><i class="fa-solid fa-volume-high"></i></button>
+                        </div>
+                        <span class="category-tag" id="cardCategoryTag">Visual</span>
+                    </div>
+                    <div class="hero-visual" id="cardEmojiVisual">🎒</div>
+                    <div class="card-detail">
+                        <strong>Meaning:</strong> <span id="cardMeaningText">Of great weight; difficult to lift.</span>
+                    </div>
+
+                    <!-- Mnemonic Clue всегда виден -->
+                    <div class="mnemonic-callout">
+                        <div class="card-detail" style="margin-bottom:0;">
+                            <strong>Mnemonic Clue:</strong> <span id="cardMnemonicText">A tiny mouse tries to lift a huge schoolbag.</span>
+                        </div>
+                    </div>
+
+                    <!-- Visual Box -->
+                    <div class="mnemonic-box visual-box" id="boxVisual">
+                        <div class="card-detail" style="margin-bottom:0;">
+                            <strong>Visual:</strong> <span id="cardVisualText">A tiny mouse tries to lift a huge schoolbag.</span>
+                        </div>
+                    </div>
+
+                    <!-- Rhymes Box -->
+                    <div class="mnemonic-box rhyme-box" id="boxRhymes">
+                        <div class="card-detail" style="margin-bottom:0;">
+                            <strong>Rhymes:</strong> <span id="cardRhymeText">Heavy levy, hard to carry!</span>
+                        </div>
+                    </div>
+
+                    <!-- Associations Box -->
+                    <div class="mnemonic-box assoc-box" id="boxAssociations">
+                        <div class="card-detail" style="margin-bottom:0;">
+                            <strong>Associations:</strong> <span id="cardAssocText">Imagine a heavy lead weight or iron dumbbell.</span>
+                        </div>
+                    </div>
+
+                    <!-- Stories Box -->
+                    <div class="mnemonic-box story-box" id="boxStories">
+                        <div class="card-detail" style="margin-bottom:0;">
+                            <strong>Short Story:</strong> <span id="cardStoryText">His backpack was so heavy that he could barely walk to school.</span>
+                        </div>
+                    </div>
+
+                    <div class="lingo-grid">
+                        <div class="lingo-item"><span>Synonyms:</span> <span id="cardSynonyms">weighty, massive</span></div>
+                        <div class="lingo-item"><span>Antonyms:</span> <span id="cardAntonyms">light, airy</span></div>
+                        <div class="lingo-item"><span>Homonyms/Root:</span> <span id="cardHomonyms">Old English origin</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Olympiad Tab -->
+            <div id="tabOlympiadView" class="tab-content">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">
+                    ⭐ Advanced & Olympiad Vocabulary Bank (75+ Words):
+                </div>
+                <div class="olympiad-list" id="olympiadListContainer"></div>
+            </div>
+
+            <!-- All Words Tab -->
+            <div id="tabAllWordsView" class="tab-content">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">
+                    ⭐ Complete Vocabulary Database:
+                </div>
+                <div class="all-words-list" id="allWordsContainer"></div>
+            </div>
+
+            <!-- Games Tab -->
+            <div id="tabGamesView" class="tab-content">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">
+                    🎮 Advanced Practice & Knowledge Check:
+                </div>
+
+                <div class="game-card">
+                    <div class="game-title"><i class="fa-solid fa-bolt"></i> Game 1: Meaning Challenge</div>
+                    <div id="g1_question" style="font-size: 13px; margin-bottom: 8px; font-weight: 600;">Loading...</div>
+                    <div id="g1_options"></div>
+                </div>
+
+                <div class="game-card">
+                    <div class="game-title"><i class="fa-solid fa-mask"></i> Game 2: Emoji Sleuth</div>
+                    <div id="g2_question" style="font-size: 13px; margin-bottom: 8px; font-weight: 600;">Loading...</div>
+                    <div id="g2_options"></div>
+                </div>
+
+                <div class="game-card">
+                    <div class="game-title"><i class="fa-solid fa-lightbulb"></i> Game 3: Mnemonic Master</div>
+                    <div id="g3_question" style="font-size: 13px; margin-bottom: 8px; font-weight: 600;">Loading...</div>
+                    <div id="g3_options"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-tab active" id="navLearn" onclick="switchTab('learn')"><i class="fa-solid fa-book-open"></i>Learn</div>
+            <div class="nav-tab" id="navOlympiad" onclick="switchTab('olympiad')"><i class="fa-solid fa-award"></i>Olympiad</div>
+            <div class="nav-tab" id="navAllWords" onclick="switchTab('allWords')"><i class="fa-solid fa-star"></i>All Words</div>
+            <div class="nav-tab" id="navGames" onclick="switchTab('games'); initGames();"><i class="fa-solid fa-gamepad"></i>Games</div>
+        </div>
+    </div>
+
+    <script>
+        const coreWords = {
+            "heavy": { 
+                emoji: "🎒", category: "Visual", meaning: "Of great weight; difficult to lift.", 
+                mnemonic: "A tiny mouse tries to lift a huge schoolbag.",
+                visual: "A tiny mouse tries to lift a huge schoolbag.",
+                rhymes: "Heavy levy, hard to carry!",
+                associations: "Imagine a heavy lead weight or iron dumbbell.",
+                stories: "His backpack was so heavy that he could barely walk to school.",
+                synonyms: "weighty, massive", antonyms: "light", homonyms: "Old English origin" 
+            },
+            "bright": { 
+                emoji: "💡", category: "Rhymes", meaning: "Emitting or reflecting a lot of light.", 
+                mnemonic: "The room is bright, with lots of light!",
+                visual: "A shining sun illuminating a clean classroom.",
+                rhymes: "The room is bright, with lots of light!",
+                associations: "Lightbulbs, sunshine, glowing stars at night.",
+                stories: "The bright star guided travelers safely through the dark night.",
+                synonyms: "shiny, radiant", antonyms: "dark, dim", homonyms: "Old English origin" 
+            },
+            "curious": { 
+                emoji: "🔍", category: "Stories", meaning: "Eager to know or learn something.", 
+                mnemonic: "Someone who keeps asking 'Why?' continuously.",
+                visual: "A detective looking closely through a magnifying glass.",
+                rhymes: "Curious cat wearing a hat!",
+                associations: "Someone who keeps asking 'Why?' continuously.",
+                stories: "The curious student asked many brilliant questions in science class.",
+                synonyms: "inquisitive", antonyms: "indifferent", homonyms: "Latin root 'curiosus'" 
+            },
+            "protect": { 
+                emoji: "☔", category: "Stories", meaning: "Keep safe from harm, injury, or rain.", 
+                mnemonic: "Holding an umbrella to protect a kitten from rain.",
+                visual: "An umbrella held over a small sleeping kitten in rain.",
+                rhymes: "Protect and connect, with full respect!",
+                associations: "Shields, raincoats, guardians, helmets.",
+                stories: "It started to rain, so she held an umbrella over the kitten to protect it.",
+                synonyms: "guard, shield", antonyms: "harm, attack", homonyms: "Latin root 'protegere'" 
+            },
+            "journey": { 
+                emoji: "🧳", category: "Stories", meaning: "An act of traveling from one place to another.", 
+                mnemonic: "Hikers crossing a narrow wooden bridge across a river.",
+                visual: "Hikers crossing a narrow wooden bridge across a river.",
+                rhymes: "A long journey to attorney!",
+                associations: "Suitcases, maps, mountains, train tracks.",
+                stories: "On our journey, we reached a narrow bridge and crossed one by one.",
+                synonyms: "trip, voyage", antonyms: "stay", homonyms: "French 'journée'" 
+            },
+            "ambition": { 
+                emoji: "🎯", category: "Visual", meaning: "A strong desire to achieve something great.", 
+                mnemonic: "An arrow hitting the exact center of a bullseye.",
+                visual: "An arrow hitting the exact center of a bullseye.",
+                rhymes: "High ambition, winning condition!",
+                associations: "Trophies, mountain tops, hard work.",
+                stories: "His fierce ambition drove him to study late every night until he succeeded.",
+                synonyms: "goal, drive", antonyms: "apathy", homonyms: "Latin 'ambio'" 
+            },
+            "ubiquitous": { 
+                emoji: "🌍", category: "Associations", meaning: "Present, appearing, or found everywhere.", 
+                mnemonic: "Smartphones being used all over the globe.",
+                visual: "Smartphones being used all over the globe.",
+                rhymes: "Ubiquitous continuously among us!",
+                associations: "Air, internet, smartphones, water.",
+                stories: "Mobile phones have become ubiquitous across every city.",
+                synonyms: "omnipresent", antonyms: "rare", homonyms: "Latin 'ubique'" 
+            },
+            "serendipity": { 
+                emoji: "✨", category: "Associations", meaning: "Finding valuable or agreeable things by chance.", 
+                mnemonic: "Finding a hidden golden key under a garden leaf.",
+                visual: "Finding a hidden golden key under a garden leaf.",
+                rhymes: "Sweet serendipity, lucky activity!",
+                associations: "Happy accidents, surprise gifts, finding money.",
+                stories: "Finding her long-lost ring in the park was pure serendipity.",
+                synonyms: "luck, chance", antonyms: "misfortune", homonyms: "Persian tale" 
+            },
+            "ephemeral": { 
+                emoji: "⏳", category: "Associations", meaning: "Lasting for a very short time.", 
+                mnemonic: "A delicate soap bubble popping in mid-air.",
+                visual: "A delicate soap bubble popping in mid-air.",
+                rhymes: "Ephemeral moment, fast tone component!",
+                associations: "Soap bubbles, shooting stars, morning dew.",
+                stories: "The beautiful rainbow was ephemeral and disappeared in minutes.",
+                synonyms: "fleeting", antonyms: "permanent", homonyms: "Greek root" 
+            },
+            "resilience": { 
+                emoji: "🌳", category: "Associations", meaning: "Capacity to recover quickly from difficulties.", 
+                mnemonic: "A strong tree bending in wind and snapping back.",
+                visual: "A strong tree bending in wind and snapping back.",
+                rhymes: "Resilience reliance, full of compliance!",
+                associations: "Springs bouncing back, rubber bands, storm survivors.",
+                stories: "Her resilience allowed her to overcome every academic challenge.",
+                synonyms: "toughness", antonyms: "weakness", homonyms: "Latin 'resilire'" 
+            }
+        };
+
+        const extraWords = [
+            "avalanche", "gigantic", "fortress", "horizon", "architecture", "cascade", "glacier", 
+            "volcano", "lighthouse", "mosaic", "oasis", "silhouette", "telescope", "tundra", "canyon", 
+            "crystal", "feather", "galaxy", "labyrinth", "eclipse", "swift", "bold", "thrive", "glee", 
+            "calm", "wise", "neat", "pure", "grand", "free", "fast", "true", "kind", "strong", "smart", 
+            "cool", "sweet", "glad", "fair", "brave", "flourish", "eloquent", "sanctuary", "pioneer", 
+            "victory", "wisdom", "harmony", "legend", "courage", "discovery", "freedom", "friendship", 
+            "invention", "kingdom", "mountain", "treasure", "village", "warrior", "universe", "wanderer", 
+            "youth", "heritage", "mellifluous", "catalyst", "zenith", "paradox", "pragmatic", "nostalgia", 
+            "momentum", "synthetic", "symbiosis", "symmetry", "synthesis", "stimulus", "spectrum"
+        ];
+
+        const database = { ...coreWords };
+        extraWords.forEach((w, idx) => {
+            const cats = ["Visual", "Rhymes", "Stories", "Associations"];
+            const cat = cats[idx % 4];
+            database[w] = {
+                emoji: "⭐",
+                category: cat,
+                meaning: `Advanced vocabulary term: ${w}.`,
+                mnemonic: `Mnemonic memory hook for ${w}.`,
+                visual: `Visual illustration for ${w}.`,
+                rhymes: `Rhyming memory clue for ${w}.`,
+                associations: `Association link for ${w}.`,
+                stories: `A short contextual story showcasing the word ${w}.`,
+                synonyms: "advanced, scholarly",
+                antonyms: "simple",
+                homonyms: "Academic root"
+            };
+        });
+
+        const olympiadWords = Object.keys(database);
+        let currentFilter = "all";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btnSearch').onclick = handleSearch;
+            document.getElementById('targetWordInput').onkeypress = (e) => { 
+                if (e.key === 'Enter') handleSearch(); 
+            };
+
+            renderWordChips('all');
+            renderAllWordsList();
+            renderOlympiadList();
+            handleSearch();
+        });
+
+        function speakWord() {
+            const currentWord = document.getElementById('cardWordText').innerText;
+            if ('speechSynthesis' in window && currentWord) {
+                const utterance = new SpeechSynthesisUtterance(currentWord);
+                utterance.lang = 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function switchTab(tabName) {
+            ['Learn', 'Olympiad', 'AllWords', 'Games'].forEach(t => {
+                document.getElementById('tab' + t + 'View').classList.remove('active');
+                document.getElementById('nav' + t).classList.remove('active');
+            });
+            document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'View').classList.add('active');
+            document.getElementById('nav' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+        }
+
+        function filterByCategory(category) {
+            currentFilter = category;
+            ['All', 'Visual', 'Rhymes', 'Stories', 'Associations'].forEach(c => {
+                const el = document.getElementById('cat' + c);
+                if (el) el.classList.remove('active');
+            });
+            const activeEl = document.getElementById('cat' + (category === 'all' ? 'All' : category));
+            if (activeEl) activeEl.classList.add('active');
+
+            renderWordChips(category);
+            updateCardBoxes(category);
+        }
+
+        function updateCardBoxes(category) {
+            const boxes = ['boxVisual', 'boxRhymes', 'boxAssociations', 'boxStories'];
+            boxes.forEach(b => {
+                const el = document.getElementById(b);
+                if (el) el.style.display = 'none';
+            });
+
+            if (category === 'all') {
+                return;
+            }
+
+            const targetBox = document.getElementById('box' + category);
+            if (targetBox) {
+                targetBox.style.display = 'block';
+            }
+        }
+
+        function renderWordChips(category) {
+            const container = document.getElementById('wordChipsContainer');
+            const words = Object.keys(database);
+            const filtered = category === 'all' ? words : words.filter(w => database[w].category === category);
+
+            container.innerHTML = filtered.slice(0, 15).map(w => `
+                <div class="chip-badge" onclick="selectQuick('${w}')">${w}</div>
+            `).join('');
+        }
+
+        function renderAllWordsList() {
+            const container = document.getElementById('allWordsContainer');
+            const words = Object.keys(database);
+            container.innerHTML = words.map(w => `
+                <div class="word-list-item" onclick="selectQuick('${w}')">
+                    <div><strong>${w}</strong> — <span style="color:var(--text-muted); font-size:12px;">${database[w].meaning}</span></div>
+                    <span style="font-size:16px;">${database[w].emoji}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderOlympiadList() {
+            const container = document.getElementById('olympiadListContainer');
+            container.innerHTML = olympiadWords.map(w => `
+                <div class="olympiad-card" onclick="selectQuick('${w}')">
+                    <div class="olympiad-title">${w} <i class="fa-solid fa-medal" style="color:#d97706;"></i></div>
+                    <div style="font-size: 12px; color: #78350f; margin-top: 4px;">${database[w].meaning}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectQuick(word) {
+            document.getElementById('targetWordInput').value = word;
+            switchTab('learn');
+            handleSearch();
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('targetWordInput').value.trim().toLowerCase();
+            if (!query) return;
+
+            const data = database[query] || {
+                emoji: "📖", category: "Visual",
+                meaning: `Definition of "${query}".`,
+                mnemonic: `Basic mnemonic clue for "${query}".`,
+                visual: `Visual illustration for "${query}".`,
+                rhymes: `Rhyme clue for "${query}".`,
+                associations: `Association idea for "${query}".`,
+                stories: `Short contextual story using "${query}".`,
+                synonyms: "common", antonyms: "opposite", homonyms: "Root analysis"
+            };
+
+            displayCardData(query, data);
+        }
+
+        function displayCardData(word, data) {
+            document.getElementById('cardWordText').innerText = word;
+            document.getElementById('cardCategoryTag').innerText = data.category;
+            document.getElementById('cardEmojiVisual').innerText = data.emoji;
+            document.getElementById('cardMeaningText').innerText = data.meaning;
+            document.getElementById('cardMnemonicText').innerText = data.mnemonic;
+            
+            document.getElementById('cardVisualText').innerText = data.visual;
+            document.getElementById('cardRhymeText').innerText = data.rhymes;
+            document.getElementById('cardAssocText').innerText = data.associations;
+            document.getElementById('cardStoryText').innerText = data.stories;
+
+            document.getElementById('cardSynonyms').innerText = data.synonyms;
+            document.getElementById('cardAntonyms').innerText = data.antonyms;
+            document.getElementById('cardHomonyms').innerText = data.homonyms;
+
+            updateCardBoxes(currentFilter);
+        }
+
+        /* Mini Games Logic */
+        let g1Target = "", g2Target = "", g3Target = "";
+
+        function initGames() {
+            const keys = Object.keys(database);
+            
+            const w1 = keys[Math.floor(Math.random() * keys.length)];
+            g1Target = w1;
+            let wrongs1 = keys.filter(k => k !== w1).sort(() => 0.5 - Math.random()).slice(0, 2);
+            let opts1 = [w1, ...wrongs1].sort(() => 0.5 - Math.random());
+            
+            document.getElementById('g1_question').innerHTML = `Meaning: <em>"${database[w1].meaning}"</em>`;
+            document.getElementById('g1_options').innerHTML = opts1.map(opt => `
+                <button class="game-opt-btn" onclick="checkGame1('${opt}')">${opt}</button>
+            `).join('');
+
+            const w2 = keys[Math.floor(Math.random() * keys.length)];
+            g2Target = w2;
+            let wrongs2 = keys.filter(k => k !== w2).sort(() => 0.5 - Math.random()).slice(0, 2);
+            let opts2 = [w2, ...wrongs2].sort(() => 0.5 - Math.random());
+
+            document.getElementById('g2_question').innerHTML = `Match Emoji: <span style="font-size:20px;">${database[w2].emoji}</span>`;
+            document.getElementById('g2_options').innerHTML = opts2.map(opt => `
+                <button class="game-opt-btn" onclick="checkGame2('${opt}')">${opt}</button>
+            `).join('');
+
+            const w3 = keys[Math.floor(Math.random() * keys.length)];
+            g3Target = w3;
+            let wrongs3 = keys.filter(k => k !== w3).sort(() => 0.5 - Math.random()).slice(0, 2);
+            let opts3 = [w3, ...wrongs3].sort(() => 0.5 - Math.random());
+
+            document.getElementById('g3_question').innerHTML = `Clue: <em>"${database[w3].mnemonic}"</em>`;
+            document.getElementById('g3_options').innerHTML = opts3.map(opt => `
+                <button class="game-opt-btn" onclick="checkGame3('${opt}')">${opt}</button>
+            `).join('');
+        }
+
+        function checkGame1(selected) { if (selected === g1Target) { alert("🎉 Correct!"); initGames(); } else alert("❌ Try again!"); }
+        function checkGame2(selected) { if (selected === g2Target) { alert("🎉 Correct!"); initGames(); } else alert("❌ Try again!"); }
+        function checkGame3(selected) { if (selected === g3Target) { alert("🎉 Correct!"); initGames(); } else alert("❌ Try again!"); }
+    </script>
+</body>
+</html>
